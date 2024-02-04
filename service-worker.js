@@ -1,49 +1,70 @@
-console.log(self);
+const cacheStorage = 'Nazmul Music App';
+
 self.addEventListener('install', (event) => {
-    console.log('[SW] Install:', event);
-// Activate itself, no need to wait for the user to activate
     self.skipWaiting();
-
-
-console.log(caches);
-event.waitUntil(
-    caches.open('cacheAssets')
-.then((cache) => {
-    console.log('Cache', cache)
-    // cache.add('/index.html');
-    // cache.add('/app.js');
-    // cache.addAll([
-    //     '/index.html',
-    //     '/app.js']);
-
-})
-.catch((error) => {
-    console.log('Cache failed', error);
-})
-);
+    event.waitUntil(
+        caches.open(cacheStorage)
+            .then((cache) => {
+                return cache.addAll([
+                    '/index.html',
+                    '/main.css',
+                    '/images/MusicApp Icon.png',
+                    '/app.js',
+                    '/manifest.json',
+                    '/icons',
+                    '/service-worker.js',
+                    '/icons/favicon-32x32.png',
+                    '/icons/android-chrome-192x192.png'
+                ]);
+            })
+    );
 });
-
 self.addEventListener('activate', (event) => {
-    console.log('[SW] Activate:', event);
-
-// Immediately gets control over the client's page
-    event.waitUntil(clients.claim());
-
-    // This line will only be executed after 
-    // getting control over all open pages.
-
-})
+    event.waitUntil(
+        Promise.all([
+            clients.claim(),
+            caches.keys().then((cName) => {
+                return Promise.all(
+                    cName
+                        .filter((name) => name !== cacheStorage)
+                        .map((cacheDelete) => {
+                            return caches.delete(cacheDelete);
+                        })
+                );
+            })
+        ])
+    );
+});
 
 self.addEventListener('fetch', (event) => {
-event.respondWith(
-    caches.match(event.request)
-    .then((response) => {
-        console.log('Response:', response);
-        return response;
-    })
-    .catch((error) => {
-    console.log('Match Failed:', error);
-    })
-);
-
+    event.respondWith(
+        caches.match(event.request)
+            .then((response) => {
+                if (response) {
+                    return response;
+                }
+                return networkFallback(event.request);
+            })
+            .catch(() => {
+            })
+    );
 });
+
+function networkFallback(reqq) {
+    return caches.open(cacheStorage)
+        .then(cache => {
+            const res = cache.match(reqq);
+            const req = fetch(reqq);
+
+            return Promise.all([res, req])
+                .then(([res, netRes]) => {
+                    if (netRes && netRes.status === 200) {
+                        cache.put(reqq, netRes.clone());
+                    }
+                    return netRes || res;
+                })
+                .catch(() => {
+                    return res;
+                });
+        });
+}

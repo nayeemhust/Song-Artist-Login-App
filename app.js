@@ -28,15 +28,13 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js')
-    .then((registration) => {
-console.log('Register Success:', registration);
-    })
-    .catch((error) => {
-        console.log('Register Failed:', error);
+        .then((registration) => {
+            
+        })
+        .catch((error) => {
 
-    })
+        });
+} else {
 }
-else {
-    console.log('Service workers are not supported')
-}
+
 
