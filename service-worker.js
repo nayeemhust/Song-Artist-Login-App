@@ -1,15 +1,15 @@
-const cacheStorage = 'Nazmul Music App';
+const cacheStorage = 'NazmulMusicApp';
 
 self.addEventListener('install', (event) => {
     self.skipWaiting();
     event.waitUntil(
         caches.open(cacheStorage)
-            .then((cache) => {
-                return cache.addAll([
+            .then( (cache) => {
+                cache.addAll([
                     '/index.html',
                     '/main.css',
                     '/images/MusicApp Icon.png',
-                    '/app.js',
+                    '/js/app.js',
                     '/manifest.json',
                     '/icons',
                     '/service-worker.js',
@@ -17,19 +17,20 @@ self.addEventListener('install', (event) => {
                     '/icons/android-chrome-192x192.png'
                 ]);
             })
+            .catch(error => {
+                console.error('Failed to cache some resources:', error);
+            })
     );
 });
+
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         Promise.all([
             clients.claim(),
-            caches.keys().then((cName) => {
+            caches.keys().then((cacheNames) => {
                 return Promise.all(
-                    cName
-                        .filter((name) => name !== cacheStorage)
-                        .map((cacheDelete) => {
-                            return caches.delete(cacheDelete);
-                        })
+                    cacheNames.filter((cacheName) => cacheName !== cacheStorage)
+                        .map((cacheName) => caches.delete(cacheName))
                 );
             })
         ])
@@ -46,25 +47,28 @@ self.addEventListener('fetch', (event) => {
                 return networkFallback(event.request);
             })
             .catch(() => {
+                // Handle errors if needed
             })
     );
 });
 
-function networkFallback(reqq) {
-    return caches.open(cacheStorage)
-        .then(cache => {
-            const res = cache.match(reqq);
-            const req = fetch(reqq);
+function networkFallback(request) {
+    return fetch(request)
+        .then((networkResponse) => {
+            if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+                return networkResponse;
+            }
 
-            return Promise.all([res, req])
-                .then(([res, netRes]) => {
-                    if (netRes && netRes.status === 200) {
-                        cache.put(reqq, netRes.clone());
-                    }
-                    return netRes || res;
-                })
-                .catch(() => {
-                    return res;
+            const responseToCache = networkResponse.clone();
+
+            caches.open(cacheStorage)
+                .then((cache) => {
+                    cache.put(request, responseToCache);
                 });
+
+            return networkResponse;
+        })
+        .catch(() => {
+            // Handle errors if needed
         });
 }
